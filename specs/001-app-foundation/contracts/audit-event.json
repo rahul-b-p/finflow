@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AuditEventContract",
+  "description": "Standard schema for shadow table audit events emitted during entity mutations in FinFlow",
+  "type": "object",
+  "required": [
+    "id",
+    "entityType",
+    "revType",
+    "modifiedBy",
+    "revTimestamp"
+  ],
+  "properties": {
+    "auditId": {
+      "type": "integer",
+      "description": "Database generated audit primary key"
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the entity that was mutated"
+    },
+    "entityType": {
+      "type": "string",
+      "description": "Name of the entity / table being audited (e.g. users, services)",
+      "example": "users"
+    },
+    "revType": {
+      "type": "string",
+      "enum": ["INSERT", "UPDATE", "DELETE"],
+      "description": "Type of mutation performed"
+    },
+    "diffData": {
+      "type": "object",
+      "description": "Map of field changes {fieldName: {old: val, new: val}}. Scrubbed of raw PII.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "old": {},
+          "new": {}
+        }
+      }
+    },
+    "modifiedBy": {
+      "type": "string",
+      "description": "Obfuscated actor token or system identifier (never cleartext email/name)",
+      "example": "SYSTEM_BOOTSTRAP"
+    },
+    "ipAddress": {
+      "type": "string",
+      "description": "Client IP address (IPv4 or IPv6)",
+      "example": "192.168.1.1"
+    },
+    "revTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp of the mutation"
+    }
+  }
+}
