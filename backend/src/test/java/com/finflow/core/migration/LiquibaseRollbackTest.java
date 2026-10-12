@@ -39,8 +39,8 @@ class LiquibaseRollbackTest {
                 // Run migration forward
                 liquibase.update(new Contexts(), new LabelExpression());
 
-                // Roll back all 3 changesets
-                liquibase.rollback(3, new Contexts(), new LabelExpression());
+                // Roll back all 4 changesets
+                liquibase.rollback(4, new Contexts(), new LabelExpression());
 
                 // Re-apply to ensure idempotency
                 liquibase.update(new Contexts(), new LabelExpression());

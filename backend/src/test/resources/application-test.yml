@@ -23,6 +23,11 @@ spring:
 finflow:
   security:
     jwt-secret: dGhpc2lzYXZlcnlzZWNyZXRrZXlmb3Jqd3RzaWduaW5nMTIzNDU=
+    jwt:
+      secret: dGhpc2lzYXZlcnlzZWNyZXRrZXlmb3Jqd3RzaWduaW5nMTIzNDU=
+      expiration-ms: 900000
+      refresh-expiration-ms: 604800000
+      issuer: https://api.finflow.com
     pii-encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
     seed:
       super-admin:

@@ -26,9 +26,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BaseException.class)
     public ResponseEntity<ProblemDetailResponse> handleBaseException(BaseException ex, HttpServletRequest request) {
         log.warn("Handled business exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        String title = ex.getStatus() instanceof HttpStatus httpStatus
+                ? httpStatus.getReasonPhrase()
+                : (ex.getStatus().value() == 449 ? "Retry With" : "Error");
+
         ProblemDetailResponse response = ProblemDetailResponse.builder()
                 .type("https://finflow.internal/errors/" + ex.getErrorCode().toLowerCase().replace("_", "-"))
-                .title(ex.getStatus().getReasonPhrase())
+                .title(title)
                 .status(ex.getStatus().value())
                 .detail(ex.getMessage())
                 .code(ex.getErrorCode())

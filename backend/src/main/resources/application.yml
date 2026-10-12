@@ -46,6 +46,11 @@ management:
 finflow:
   security:
     jwt-secret: ${JWT_SECRET:dGhpc2lzYXZlcnlzZWNyZXRrZXlmb3Jqd3RzaWduaW5nMTIzNDU=}
+    jwt:
+      secret: ${JWT_SECRET:dGhpc2lzYXZlcnlzZWNyZXRrZXlmb3Jqd3RzaWduaW5nMTIzNDU=}
+      expiration-ms: ${JWT_EXPIRATION_MS:900000}
+      refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+      issuer: ${JWT_ISSUER:https://api.finflow.com}
     pii-encryption-key: ${PII_ENCRYPTION_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
     seed:
       super-admin:

@@ -1,0 +1,681 @@
+openapi: 3.1.0
+info:
+  title: FinFlow Authentication Module API Contracts
+  version: 1.0.0
+  description: >
+    OpenAPI 3.1 contract specification for FinFlow Module 2 (Authentication).
+    Covers self-registration, credential login, RFC 6238 TOTP multi-factor authentication,
+    Google OAuth2 federated identity, session refresh, logout, and password recovery.
+    In accordance with Constitution Principle I, all entity identifiers exposed over the wire
+    are obfuscated with per-session AES encryption.
+
+paths:
+  /api/v1/auth/register:
+    post:
+      summary: User Self-Registration
+      description: >
+        Registers a new user account. In compliance with FR-002, all self-registered accounts
+        are placed in PENDING_APPROVAL status. No authentication tokens are issued.
+      operationId: registerUser
+      tags:
+        - Authentication Lifecycle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '201':
+          description: Registration submitted successfully; account is awaiting administrator review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Validation error or invalid request payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '409':
+          description: An account with this email address already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/login:
+    post:
+      summary: User Login & Session Issuance
+      description: >
+        Authenticates an approved active user using email and password.
+        If 2FA is active, returns MFA_REQUIRED with a temporary challenge token.
+        If authenticated, establishes a Redis session, generates an ephemeral ID obfuscation key,
+        and returns access and refresh credentials.
+      operationId: login
+      tags:
+        - Authentication Lifecycle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful or MFA verification required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid email or password credentials.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Account is in PENDING_APPROVAL, REJECTED, or SUSPENDED status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/mfa/verify:
+    post:
+      summary: Verify MFA Challenge
+      description: Exchanges a temporary MFA challenge token and 6-digit TOTP code for active session tokens.
+      operationId: verifyMfaChallenge
+      tags:
+        - Multi-Factor Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaVerificationRequest'
+      responses:
+        '200':
+          description: MFA code verified; session established.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '400':
+          description: Invalid or expired TOTP code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Invalid or expired MFA challenge token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/mfa/setup:
+    post:
+      summary: Initiate TOTP MFA Setup
+      description: Generates an RFC 6238 Base32 secret and standard QR setup URI for authenticator pairing.
+      operationId: setupMfa
+      tags:
+        - Multi-Factor Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: TOTP secret generated for enrollment.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponse'
+        '401':
+          description: Unauthorized; missing or invalid bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/mfa/confirm:
+    post:
+      summary: Confirm and Activate TOTP MFA
+      description: Confirms TOTP setup by validating the user's first 6-digit code, activating 2FA for future logins.
+      operationId: confirmMfa
+      tags:
+        - Multi-Factor Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaCodeRequest'
+      responses:
+        '200':
+          description: TOTP multi-factor authentication activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid 6-digit verification code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/mfa/disable:
+    post:
+      summary: Disable TOTP MFA
+      description: Disables two-factor authentication after verifying current account password and TOTP code.
+      operationId: disableMfa
+      tags:
+        - Multi-Factor Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisableMfaRequest'
+      responses:
+        '200':
+          description: Two-factor authentication disabled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Incorrect password or TOTP code.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/oauth2/google/callback:
+    post:
+      summary: Google OAuth2 Callback & Token Exchange
+      description: Exchanges authorization code with Google, links identity, and issues session tokens or creates pending user.
+      operationId: handleGoogleCallback
+      tags:
+        - Federated Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuth2CallbackRequest'
+      responses:
+        '200':
+          description: Federated login successful; session established.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '201':
+          description: New user provisioned via Google in PENDING_APPROVAL status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Invalid authorization code or unverified Google email.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Account is in PENDING_APPROVAL or SUSPENDED status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh Access Token
+      description: Rotates refresh token and issues a new 15-minute access token while preserving the obfuscation session.
+      operationId: refreshToken
+      tags:
+        - Session Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid, revoked, or expired refresh token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /api/v1/auth/logout:
+    post:
+      summary: User Logout & Session Revocation
+      description: Invalidates active Redis session, deletes refresh token, and revokes JWT credentials.
+      operationId: logout
+      tags:
+        - Session Management
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Session revoked successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /api/v1/auth/password-reset/request:
+    post:
+      summary: Request Password Reset OTP
+      description: Dispatches a 6-digit OTP to registered email. Returns generic success to prevent email enumeration.
+      operationId: requestPasswordReset
+      tags:
+        - Password Recovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Password reset request acknowledged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /api/v1/auth/password-reset/confirm:
+    post:
+      summary: Confirm Password Reset
+      description: Validates 6-digit OTP, updates password hash, and terminates all active user sessions across devices.
+      operationId: confirmPasswordReset
+      tags:
+        - Password Recovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        '200':
+          description: Password updated; all sessions terminated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid/expired OTP or password does not meet complexity rules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegistrationRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecureP@ssw0rd!
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: John
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Doe
+        phone:
+          type: string
+          nullable: true
+          example: +15551234567
+
+    RegistrationResponse:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          enum: [PENDING_APPROVAL]
+          example: PENDING_APPROVAL
+        message:
+          type: string
+          example: Your account has been registered and is pending administrator review.
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        password:
+          type: string
+          format: password
+          example: SecureP@ssw0rd!
+
+    LoginResponse:
+      oneOf:
+        - $ref: '#/components/schemas/AuthSuccessResponse'
+        - $ref: '#/components/schemas/MfaChallengeResponse'
+
+    AuthSuccessResponse:
+      type: object
+      required:
+        - status
+        - accessToken
+        - refreshToken
+        - tokenType
+        - expiresIn
+        - user
+      properties:
+        status:
+          type: string
+          enum: [AUTHENTICATED]
+          example: AUTHENTICATED
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          example: ff_ref_a7b8c9d0e1f2a3b4c5d6e7f8
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          description: Access token lifetime in seconds.
+          example: 900
+        user:
+          $ref: '#/components/schemas/UserProfileResponse'
+
+    MfaChallengeResponse:
+      type: object
+      required:
+        - status
+        - mfaToken
+        - expiresIn
+      properties:
+        status:
+          type: string
+          enum: [MFA_REQUIRED]
+          example: MFA_REQUIRED
+        mfaToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expiresIn:
+          type: integer
+          description: MFA challenge lifetime in seconds.
+          example: 300
+
+    UserProfileResponse:
+      type: object
+      required:
+        - id
+        - email
+        - firstName
+        - lastName
+        - roles
+      properties:
+        id:
+          type: string
+          description: Ephemeral session-obfuscated user ID token. Zero raw UUIDs exposed.
+          example: id_v1_d83fa9b7e12f840c8b
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        phone:
+          type: string
+          nullable: true
+          example: +15551234567
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["END_USER"]
+        twoFactorEnabled:
+          type: boolean
+          example: false
+
+    MfaVerificationRequest:
+      type: object
+      required:
+        - mfaToken
+        - code
+      properties:
+        mfaToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+          example: "582910"
+
+    MfaSetupResponse:
+      type: object
+      required:
+        - secret
+        - qrCodeUri
+      properties:
+        secret:
+          type: string
+          description: Base32-encoded RFC 6238 shared secret.
+          example: JBSWY3DPEHPK3PXP
+        qrCodeUri:
+          type: string
+          description: Standard Key URI format for authenticator QR pairing.
+          example: otpauth://totp/FinFlow:john.doe@example.com?secret=JBSWY3DPEHPK3PXP&issuer=FinFlow
+
+    MfaCodeRequest:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+          example: "582910"
+
+    DisableMfaRequest:
+      type: object
+      required:
+        - password
+        - code
+      properties:
+        password:
+          type: string
+          format: password
+          example: SecureP@ssw0rd!
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+          example: "582910"
+
+    OAuth2CallbackRequest:
+      type: object
+      required:
+        - code
+        - state
+      properties:
+        code:
+          type: string
+          example: 4/0AfgeXvu8_...
+        state:
+          type: string
+          example: c91823ab-379e-4a6c-9411-fb317094e82b
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: ff_ref_a7b8c9d0e1f2a3b4c5d6e7f8
+
+    TokenResponse:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - tokenType
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          example: ff_ref_b1c2d3e4f5a6b7c8d9e0f1a2
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          example: 900
+
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          nullable: true
+          example: ff_ref_a7b8c9d0e1f2a3b4c5d6e7f8
+
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+
+    PasswordResetConfirmRequest:
+      type: object
+      required:
+        - email
+        - otp
+        - newPassword
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        otp:
+          type: string
+          pattern: '^[0-9]{6}$'
+          example: "492019"
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          example: NewSecureP@ssw0rd!
+
+    MessageResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: Operation completed successfully.
+
+    ProblemDetail:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - instance
+        - correlationId
+      properties:
+        type:
+          type: string
+          format: uri
+          example: https://api.finflow.com/errors/unauthorized
+        title:
+          type: string
+          example: Unauthorized
+        status:
+          type: integer
+          example: 401
+        detail:
+          type: string
+          example: Invalid credentials provided.
+        instance:
+          type: string
+          example: /api/v1/auth/login
+        correlationId:
+          type: string
+          format: uuid
+          example: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-10-12T14:40:00Z
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string

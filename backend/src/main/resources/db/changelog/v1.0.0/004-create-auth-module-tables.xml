@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="v1.0.0-004" author="finflow-auth">
+        <comment>Add MFA and login tracking to users, create user_totp_credentials and federated_identities with shadow audit tables</comment>
+
+        <!-- 1. Extend users table -->
+        <addColumn tableName="users">
+            <column name="two_factor_enabled" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="failed_login_attempts" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_login_at" type="TIMESTAMP WITH TIME ZONE"/>
+        </addColumn>
+
+        <!-- 2. user_totp_credentials table -->
+        <createTable tableName="user_totp_credentials">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="pk_user_totp_credentials" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_user_totp_credentials_user" references="users(id)" deleteCascade="true"/>
+            </column>
+            <column name="secret" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="confirmed_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="user_totp_credentials" columnNames="user_id" constraintName="uk_user_totp_credentials_user"/>
+
+        <!-- 3. federated_identities table -->
+        <createTable tableName="federated_identities">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="pk_federated_identities" nullable="false"/>
+            </column>
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_federated_identities_user" references="users(id)" deleteCascade="true"/>
+            </column>
+            <column name="provider" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="provider_subject_id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(500)"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="federated_identities" columnNames="provider, provider_subject_id" constraintName="uk_federated_provider_sub"/>
+
+        <createIndex tableName="federated_identities" indexName="idx_federated_identities_user">
+            <column name="user_id"/>
+        </createIndex>
+
+        <!-- 4. user_totp_credentials_aud shadow audit table -->
+        <createTable tableName="user_totp_credentials_aud">
+            <column name="audit_id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_user_totp_credentials_aud" nullable="false"/>
+            </column>
+            <column name="id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rev_type" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="diff_data" type="CLOB"/>
+            <column name="modified_by" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ip_address" type="VARCHAR(45)"/>
+            <column name="rev_timestamp" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="user_totp_credentials_aud" indexName="idx_user_totp_aud_entity_id">
+            <column name="id"/>
+        </createIndex>
+        <createIndex tableName="user_totp_credentials_aud" indexName="idx_user_totp_aud_timestamp">
+            <column name="rev_timestamp" descending="true"/>
+        </createIndex>
+        <createIndex tableName="user_totp_credentials_aud" indexName="idx_user_totp_aud_actor">
+            <column name="modified_by"/>
+        </createIndex>
+
+        <!-- 5. federated_identities_aud shadow audit table -->
+        <createTable tableName="federated_identities_aud">
+            <column name="audit_id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" primaryKeyName="pk_federated_identities_aud" nullable="false"/>
+            </column>
+            <column name="id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rev_type" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="diff_data" type="CLOB"/>
+            <column name="modified_by" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ip_address" type="VARCHAR(45)"/>
+            <column name="rev_timestamp" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="federated_identities_aud" indexName="idx_federated_aud_entity_id">
+            <column name="id"/>
+        </createIndex>
+        <createIndex tableName="federated_identities_aud" indexName="idx_federated_aud_timestamp">
+            <column name="rev_timestamp" descending="true"/>
+        </createIndex>
+        <createIndex tableName="federated_identities_aud" indexName="idx_federated_aud_actor">
+            <column name="modified_by"/>
+        </createIndex>
+
+        <!-- Rollback block -->
+        <rollback>
+            <dropIndex tableName="federated_identities_aud" indexName="idx_federated_aud_actor"/>
+            <dropIndex tableName="federated_identities_aud" indexName="idx_federated_aud_timestamp"/>
+            <dropIndex tableName="federated_identities_aud" indexName="idx_federated_aud_entity_id"/>
+            <dropTable tableName="federated_identities_aud"/>
+
+            <dropIndex tableName="user_totp_credentials_aud" indexName="idx_user_totp_aud_actor"/>
+            <dropIndex tableName="user_totp_credentials_aud" indexName="idx_user_totp_aud_timestamp"/>
+            <dropIndex tableName="user_totp_credentials_aud" indexName="idx_user_totp_aud_entity_id"/>
+            <dropTable tableName="user_totp_credentials_aud"/>
+
+            <dropIndex tableName="federated_identities" indexName="idx_federated_identities_user"/>
+            <dropTable tableName="federated_identities"/>
+
+            <dropTable tableName="user_totp_credentials"/>
+
+            <dropColumn tableName="users" columnName="last_login_at"/>
+            <dropColumn tableName="users" columnName="failed_login_attempts"/>
+            <dropColumn tableName="users" columnName="two_factor_enabled"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
