@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FinFlowSessionTokenClaims",
+  "description": "Claims specification for FinFlow Access Token JWTs issued by Module 2 (Authentication)",
+  "type": "object",
+  "required": [
+    "sub",
+    "sid",
+    "roles",
+    "privileges",
+    "iat",
+    "exp",
+    "iss"
+  ],
+  "properties": {
+    "sub": {
+      "type": "string",
+      "description": "Session-obfuscated user identifier. NEVER raw database UUID.",
+      "pattern": "^id_[a-zA-Z0-9_-]+$"
+    },
+    "sid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique session identifier matching the active Redis session key."
+    },
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of assigned roles, e.g. ['END_USER'] or ['ADMIN']."
+    },
+    "privileges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of atomic privileges in MODULE:OPERATION format, e.g. ['AUTH:LOGIN', 'TRANSACTION:READ']."
+    },
+    "iss": {
+      "type": "string",
+      "const": "https://api.finflow.com",
+      "description": "Token issuer identifier."
+    },
+    "iat": {
+      "type": "integer",
+      "description": "Issued-at UTC epoch timestamp."
+    },
+    "exp": {
+      "type": "integer",
+      "description": "Expiration UTC epoch timestamp (15 minutes after issuance)."
+    }
+  },
+  "additionalProperties": false
+}
