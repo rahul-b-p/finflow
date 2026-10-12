@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: finflow-backend
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 25
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 2000ms
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+finflow:
+  security:
+    jwt-secret: ${JWT_SECRET:dGhpc2lzYXZlcnlzZWNyZXRrZXlmb3Jqd3RzaWduaW5nMTIzNDU=}
+    pii-encryption-key: ${PII_ENCRYPTION_KEY:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
+    seed:
+      super-admin:
+        email: ${SUPER_ADMIN_EMAIL:admin@finflow.internal}
+        password: ${SUPER_ADMIN_PASSWORD:AdminSecurePassword123!}
+        first-name: ${SUPER_ADMIN_FIRST_NAME:Super}
+        last-name: ${SUPER_ADMIN_LAST_NAME:Admin}
+        phone: ${SUPER_ADMIN_PHONE:+1234567890}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: "*"
+    exposed-headers: X-Correlation-ID
+    allow-credentials: true
+    max-age: 3600

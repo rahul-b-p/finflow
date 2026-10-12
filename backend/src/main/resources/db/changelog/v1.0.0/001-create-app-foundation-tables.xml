@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="v1.0.0-001" author="finflow-foundation">
+        <comment>Create users, roles, and user_roles baseline foundation tables</comment>
+
+        <!-- users table -->
+        <createTable tableName="users">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" primaryKeyName="pk_users" nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(500)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_users_email"/>
+            </column>
+            <column name="password_hash" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="first_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="last_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="phone" type="VARCHAR(255)"/>
+            <column name="status" type="VARCHAR(30)" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="must_change_password" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- roles table -->
+        <createTable tableName="roles">
+            <column name="name" type="VARCHAR(50)">
+                <constraints primaryKey="true" primaryKeyName="pk_roles" nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- user_roles association table -->
+        <createTable tableName="user_roles">
+            <column name="user_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_user_roles_user" references="users(id)"/>
+            </column>
+            <column name="role_name" type="VARCHAR(50)">
+                <constraints nullable="false" foreignKeyName="fk_user_roles_role" references="roles(name)"/>
+            </column>
+            <column name="assigned_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="user_roles" columnNames="user_id, role_name" constraintName="pk_user_roles"/>
+
+        <rollback>
+            <dropTable tableName="user_roles"/>
+            <dropTable tableName="roles"/>
+            <dropTable tableName="users"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

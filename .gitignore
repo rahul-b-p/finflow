@@ -2,3 +2,20 @@
 
 .specify/*
 !.specify/memory/
+
+# Java & Build
+target/
+*.class
+*.jar
+.gradle/
+build/
+
+# Universal / IDEs
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/
+*.log
+.env*

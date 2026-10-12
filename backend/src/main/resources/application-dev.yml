@@ -1,0 +1,20 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/finflow}
+    username: ${DATABASE_USERNAME:finflow_user}
+    password: ${DATABASE_PASSWORD:finflow_secret}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 3
+      connection-timeout: 30000
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.finflow: DEBUG
+    org.springframework.web: INFO

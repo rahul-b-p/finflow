@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="v1.0.0-002" author="finflow-foundation">
+        <comment>Seed default system roles (SUPER_ADMIN, ADMIN, END_USER)</comment>
+
+        <insert tableName="roles">
+            <column name="name" value="SUPER_ADMIN"/>
+            <column name="description" value="Highest system privilege; full administrative and bootstrap access"/>
+        </insert>
+
+        <insert tableName="roles">
+            <column name="name" value="ADMIN"/>
+            <column name="description" value="General system administrator"/>
+        </insert>
+
+        <insert tableName="roles">
+            <column name="name" value="END_USER"/>
+            <column name="description" value="Standard approved platform user"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="roles">
+                <where>name IN ('SUPER_ADMIN', 'ADMIN', 'END_USER')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
