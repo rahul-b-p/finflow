@@ -8,5 +8,6 @@
     <include file="db/changelog/v1.0.0/001-create-app-foundation-tables.xml"/>
     <include file="db/changelog/v1.0.0/002-seed-initial-roles.xml"/>
     <include file="db/changelog/v1.0.0/003-create-audit-shadow-tables.xml"/>
+    <include file="db/changelog/v1.0.0/004-create-auth-module-tables.xml"/>
 
 </databaseChangeLog>

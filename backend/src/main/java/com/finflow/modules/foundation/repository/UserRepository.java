@@ -14,6 +14,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
 
+    default Optional<User> findUserByEmail(String email) {
+        if (email == null) {
+            return Optional.empty();
+        }
+        return findAll().stream()
+                .filter(u -> email.equalsIgnoreCase(u.getEmail()))
+                .findFirst();
+    }
+
     @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = :roleName")
     long countByRoleName(@Param("roleName") String roleName);
 }
